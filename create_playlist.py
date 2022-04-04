@@ -1,21 +1,49 @@
+from googleapiclient.discovery import build
 import json
 
 import requests
 
-from secrets import spotify_token, spotify_user_id
+from secrets import spotify_token, spotify_user_id, api_key
+
 
 class CreatePlaylist:
     def __init__(self):
         self.user_id = spotify_user_id
         self.spotify_token = spotify_token
 
-    # log into youtube
-    def get_youtube_client():
-        pass
+    # get video titles from youtube
+    def get_video_titles(self):
+        video_id_list = []
+        video_title_list = []
+        unsearchable_in_spotify = ['(Official Audio)', '(Official Video)', '[Official Audio]', 'Official Video']
 
-    #get video titles from youtube playlist
-    def get_video_titles():
-        pass
+        service = build('youtube', 'v3', developerKey=api_key)
+        playlist_request = service.playlistItems().list(
+            part='contentDetails',
+            playlistId='PL1RdbHwKcxVhivt2jwsfl1ngBrHIe0K_k'
+        )
+
+        response = playlist_request.execute()
+        
+        for video_list in response['items']:
+            video_id_list.append(video_list['contentDetails']['videoId'])
+
+        for video_id in video_id_list:
+            title_request = service.videos().list(
+                part='snippet',
+                id=video_id
+            )
+            response = title_request.execute() 
+
+            for phrase in unsearchable_in_spotify:
+                if phrase in response['items'][0]['snippet']['title']:
+                    video_title_list.append(response['items'][0]['snippet']['title'].replace(phrase, ''))
+                    break
+                else:
+                    video_title_list.append(response['items'][0]['snippet']['title'])
+                    break
+        
+        return video_title_list
 
     # create spotify playlist
     def create_playlist(self):
@@ -31,17 +59,15 @@ class CreatePlaylist:
         })
 
         response = requests.post(url, query, headers=header)
-        print(response)
 
     # get spotify uri for song
-    def search_songs():
+    def search_songs(self):
         pass
 
     # add songs to new spotify playlist
-    def add_songs():
+    def add_songs(self):
         pass
 
 
 if __name__ == '__main__':
     cp = CreatePlaylist()
-    cp.create_playlist()
