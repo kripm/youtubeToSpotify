@@ -65,7 +65,17 @@ class CreatePlaylist:
 
     # get spotify uri for song
     def search_songs(self):
-        pass
+        song_name = urllib.parse.quote(song_name)
+        url = "https://api.spotify.com/v1/search?q=track:{}&type=track&limit=1&offset=0".format(song_name)
+        header = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer {}".format(spotify_token)
+        }
+
+        response = json.loads(requests.get(url, headers=header).content)
+        song_uri = response['tracks']['items'][0]['uri']
+
+        return song_uri
 
     # add songs to new spotify playlist
     def add_songs(self):
