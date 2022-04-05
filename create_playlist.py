@@ -4,7 +4,7 @@ import json
 import requests
 
 from secrets import spotify_token, spotify_user_id, api_key
-
+import urllib.parse
 
 class CreatePlaylist:
     def __init__(self):
@@ -64,23 +64,38 @@ class CreatePlaylist:
         return playlist_id
 
     # get spotify uri for song
-    def search_songs(self):
+    def search_songs(self, song_name):
         song_name = urllib.parse.quote(song_name)
         url = "https://api.spotify.com/v1/search?q=track:{}&type=track&limit=1&offset=0".format(song_name)
         header = {
             "Content-Type": "application/json",
             "Authorization": "Bearer {}".format(spotify_token)
         }
-
+    
         response = json.loads(requests.get(url, headers=header).content)
-        song_uri = response['tracks']['items'][0]['uri']
+        try:
+            song_uri = response['tracks']['items'][0]['uri']
+        except:
+            song_uri = ''
 
         return song_uri
 
+
     # add songs to new spotify playlist
     def add_songs(self):
-        pass
+        playlist_id = self.create_playlist()
+        header = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer {}".format(spotify_token)
+        }
+        video_title_list = self.get_video_titles()
 
+        for video_title in video_title_list:
+            song_uri = self.search_songs(video_title)
+            url = 'https://api.spotify.com/v1/playlists/{}/tracks?uris={}'.format(playlist_id, song_uri)
+            requests.post(url, headers=header)
+            
 
 if __name__ == '__main__':
     cp = CreatePlaylist()
+    cp.add_songs()
