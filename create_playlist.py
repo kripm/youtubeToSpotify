@@ -58,7 +58,10 @@ class CreatePlaylist:
             "public": False
         })
 
-        response = requests.post(url, query, headers=header)
+        response = json.loads(requests.post(url, query, headers=header).content)
+        playlist_id = response['id']
+        
+        return playlist_id
 
     # get spotify uri for song
     def search_songs(self):
