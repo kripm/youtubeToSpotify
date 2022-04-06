@@ -1,10 +1,12 @@
 from googleapiclient.discovery import build
 import json
+import youtube_dl
 
 import requests
 
 from secrets import spotify_token, spotify_user_id, api_key
 import urllib.parse
+
 
 class CreatePlaylist:
     def __init__(self):
@@ -13,11 +15,8 @@ class CreatePlaylist:
 
     # get video titles from youtube
     def get_video_titles(self):
-        video_id_list = []
+        ydl = youtube_dl.YoutubeDL({})
         video_title_list = []
-        unsearchable_in_spotify = [
-            '(Official Audio)', '(Official Video)', ' [Official Audio] ', ' Official Video ', '[Audio HQ]'
-        ]
 
         service = build('youtube', 'v3', developerKey=api_key)
         playlist_request = service.playlistItems().list(
@@ -26,29 +25,25 @@ class CreatePlaylist:
         )
 
         response = playlist_request.execute()
-        
+
         for video_list in response['items']:
-            video_id_list.append(video_list['contentDetails']['videoId'])
+            video_title = []
+            youtube_url = 'https://www.youtube.com/watch?v='
+            youtube_url += video_list['contentDetails']['videoId']
 
-        for video_id in video_id_list:
-            title_request = service.videos().list(
-                part='snippet',
-                id=video_id
-            )
-            response = title_request.execute() 
+            with ydl:
+                video = ydl.extract_info(youtube_url, download=False)
 
-            if any(phrase in response['items'][0]['snippet']['title'] for phrase in unsearchable_in_spotify): 
-                for phrase in unsearchable_in_spotify: # this nested if for if loop looks disgusting.
-                    if phrase in response['items'][0]['snippet']['title']:
-                        video_title_list.append(response['items'][0]['snippet']['title'].replace(phrase, ''))
-            else:
-                video_title_list.append(response['items'][0]['snippet']['title'])
-        
+            video_title.append(video['artist'])
+            video_title.append(video['track'])
+            video_title_list.append(video_title)
+
         return video_title_list
 
     # create spotify playlist
     def create_playlist(self):
-        url = "https://api.spotify.com/v1/users/{}/playlists".format(spotify_user_id)
+        url = "https://api.spotify.com/v1/users/{}/playlists".format(
+            spotify_user_id)
         header = {
             "Content-Type": "application/json",
             "Authorization": "Bearer {}".format(spotify_token)
@@ -59,21 +54,24 @@ class CreatePlaylist:
             "public": False
         })
 
-        response = json.loads(requests.post(url, query, headers=header).content)
+        response = json.loads(requests.post(
+            url, query, headers=header).content)
         playlist_id = response['id']
 
         return playlist_id
 
     # get spotify uri for song
-    def search_songs(self, song_name):
+    def search_songs(self, artist_name, song_name):
         song_name = urllib.parse.quote(song_name)
-        url = "https://api.spotify.com/v1/search?q=track:{}&type=track&limit=1&offset=0".format(song_name)
+        url = "https://api.spotify.com/v1/search?q=artist:{}+track:{}&type=artist,track&limit=5&offset=0".format(
+            artist_name, song_name)
         header = {
             "Content-Type": "application/json",
             "Authorization": "Bearer {}".format(spotify_token)
         }
-    
+
         response = json.loads(requests.get(url, headers=header).content)
+
         try:
             song_uri = response['tracks']['items'][0]['uri']
         except:
@@ -89,14 +87,13 @@ class CreatePlaylist:
             "Authorization": "Bearer {}".format(spotify_token)
         }
         video_title_list = self.get_video_titles()
-        print(video_title_list)
 
         for video_title in video_title_list:
-            song_uri = self.search_songs(video_title)
-            print(video_title + ' ' + song_uri)
-            url = 'https://api.spotify.com/v1/playlists/{}/tracks?uris={}'.format(playlist_id, song_uri)
+            song_uri = self.search_songs(video_title[0], video_title[1])
+            url = 'https://api.spotify.com/v1/playlists/{}/tracks?uris={}'.format(
+                playlist_id, song_uri)
             requests.post(url, headers=header)
-            
+
 
 if __name__ == '__main__':
     cp = CreatePlaylist()
